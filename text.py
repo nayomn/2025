@@ -1,31 +1,36 @@
 import streamlit as st
 import pandas as pd
 
-# 예시 데이터 직접 생성
-data = {
-    "언론사": ["A일보", "B신문", "C방송", "D뉴스"],
-    "카테고리": ["정치", "경제", "정치", "사회"],
-    "제목": ["정부 발표 논란", "증시 폭락", "대통령 연설", "지하철 파업"],
-    "날짜": ["2025-08-20", "2025-08-21", "2025-08-21", "2025-08-22"]
-}
-df = pd.DataFrame(data)
+st.title("📰 언론사 비교 대시보드 (사용자 입력 버전)")
 
-st.title("📰 언론사 비교 대시보드")
+# 데이터 저장용 (빈 리스트)
+if "news_data" not in st.session_state:
+    st.session_state["news_data"] = []
 
-# 사이드바
-media = st.sidebar.multiselect("언론사 선택", df["언론사"].unique(), default=df["언론사"].unique())
-category = st.sidebar.selectbox("카테고리 선택", df["카테고리"].unique())
+# 입력 폼
+with st.form("news_form"):
+    media = st.text_input("언론사 이름 입력")
+    category = st.selectbox("카테고리 선택", ["정치", "경제", "사회", "문화", "스포츠", "기타"])
+    title = st.text_input("기사 제목 입력")
+    date = st.date_input("날짜 선택")
+    submitted = st.form_submit_button("추가하기")
 
-# 필터링
-filtered = df[(df["언론사"].isin(media)) & (df["카테고리"] == category)]
+    if submitted:
+        new_entry = {"언론사": media, "카테고리": category, "제목": title, "날짜": str(date)}
+        st.session_state["news_data"].append(new_entry)
+        st.success("✅ 기사가 추가되었습니다!")
 
-# 기사 수 비교
-st.subheader("📊 언론사별 기사 수")
-count_data = filtered["언론사"].value_counts()
-st.bar_chart(count_data)
+# 입력된 데이터프레임
+df = pd.DataFrame(st.session_state["news_data"])
 
-# 기사 미리보기
-st.subheader("📰 기사 미리보기")
-st.write(filtered[["언론사", "제목", "날짜"]])
+if not df.empty:
+    st.subheader("📊 언론사별 기사 수")
+    count_data = df["언론사"].value_counts()
+    st.bar_chart(count_data)
+
+    st.subheader("📰 기사 목록")
+    st.write(df)
+else:
+    st.info("아직 입력된 기사가 없습니다. 위에 내용을 입력해주세요!")
 
 
