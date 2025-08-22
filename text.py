@@ -1,9 +1,11 @@
 import streamlit as st
 import pandas as pd
+from collections import Counter
+import re
 
-st.set_page_config(page_title="🕵️‍♀️ 가짜뉴스 판별 체험 앱", layout="wide")
-st.title("🕵️‍♀️ 가짜뉴스 판별 체험 앱")
-st.markdown("🔗 링크와 기사 제목을 입력하면 가짜뉴스 가능성을 분석하고, 상세 근거와 신뢰 요소를 보여줍니다.")
+st.set_page_config(page_title="📰 뉴스 요약 & 키워드 추출기", layout="wide")
+st.title("📰 뉴스 요약 & 핵심 키워드 추출기")
+st.markdown("뉴스 링크 또는 기사 내용을 입력하면, 자동으로 요약과 핵심 키워드를 추출해 보여줍니다.")
 
 # 데이터 저장용
 if "news_data" not in st.session_state:
@@ -11,79 +13,42 @@ if "news_data" not in st.session_state:
 
 # 입력 폼
 with st.form("news_form"):
-    url = st.text_input("🖇 뉴스 링크 입력")
-    title = st.text_input("📝 기사 제목 입력")
+    url = st.text_input("🔗 뉴스 링크 입력 (선택)")
+    text = st.text_area("📝 기사 제목/본문 입력")
     submitted = st.form_submit_button("분석하기")
 
+def extract_keywords(text, top_n=10):
+    # 간단한 키워드 추출: 공백 분리 후 단어 빈도 계산
+    words = re.findall(r'\b\w+\b', text.lower())
+    stopwords = ["의", "가", "이", "은", "들", "는", "좀", "잘", "걍", "과", "도", "를", "으로", "자", "에", "와", "한", "하다"]
+    words = [w for w in words if w not in stopwords and len(w) > 1]
+    counter = Counter(words)
+    return counter.most_common(top_n)
+
 if submitted:
-    if not url or not title:
-        st.warning("⚠ 뉴스 링크와 제목을 모두 입력해주세요!")
+    if not text.strip():
+        st.warning("기사 내용을 입력해주세요!")
     else:
-        # 규칙 기반 판별
-        fake_keywords = ["충격", "긴급", "단독", "파격", "소름", "경악", "대박", "믿기 힘든"]
-        trust_keywords = ["정부", "통계청", "공식", "발표", "자료", "보도", "기관"]
+        # 간단 요약: 첫 3문장
+        sentences = text.split(". ")
+        summary = ". ".join(sentences[:3]) + ("..." if len(sentences) > 3 else "")
 
-        # 과장 표현, 신뢰 키워드, 출처 불명 체크
-        fake_count = sum(word in title for word in fake_keywords)
-        trust_count = sum(word in title for word in trust_keywords)
-        source_count = 0
-        source_phrases = ["익명의 제보자", "누군가에 따르면", "전해진 바에 따르면"]
-
-        # 실제 문장 포함 확인
-        fake_sentences = [kw for kw in fake_keywords if kw in title]
-        trust_sentences = [kw for kw in trust_keywords if kw in title]
-        source_sentences = [kw for kw in source_phrases if kw in title]
-        source_count = len(source_sentences)
-
-        # 점수 계산
-        score = 50 + fake_count*10 - trust_count*5
-        score = max(0, min(100, score))  # 0~100 범위
-
-        # 등급/색상/이모지
-        if score >= 70:
-            color = "🔴 위험"
-            emoji = "🚨"
-        elif score >= 40:
-            color = "🟡 주의"
-            emoji = "⚠️"
-        else:
-            color = "🟢 신뢰"
-            emoji = "✅"
+        # 키워드 추출
+        keywords = extract_keywords(text)
 
         # 데이터 저장
         st.session_state["news_data"].append({
-            "제목": title,
-            "링크": url,
-            "가짜뉴스 가능성(%)": score,
-            "등급": color
+            "뉴스 링크": url if url else "-",
+            "요약": summary,
+            "핵심 키워드": ", ".join([k[0] for k in keywords])
         })
 
         # 결과 출력
-        st.subheader(f"{emoji} 분석 결과")
-        st.markdown(f"**제목:** {title}")
-        st.markdown(f"**뉴스 링크:** [바로가기]({url})")
-        st.markdown(f"**가짜뉴스 가능성:** {score}%")
-        st.markdown(f"**등급:** {color}")
+        st.subheader("📝 뉴스 요약")
+        st.write(summary)
 
-        # 상세 근거
-        with st.expander("🔍 판별 근거 자세히 보기"):
-            st.markdown(f"⚠ 과장 표현 발견: {fake_count}회")
-            for s in fake_sentences:
-                st.write(f"- {s}")
-
-            st.markdown(f"❓ 출처 불명 발견: {source_count}회")
-            for s in source_sentences:
-                st.write(f"- {s}")
-
-            st.markdown(f"✅ 신뢰 키워드 발견: {trust_count}회")
-            for s in trust_sentences:
-                st.write(f"- {s}")
-
-            if fake_count == 0 and trust_count == 0 and source_count == 0:
-                st.write("💬 중립적인 표현으로 판단됩니다.")
-
-        # 사용자 안내
-        st.info("ℹ️ 점수는 규칙 기반 분석 결과이며, 100% 정확하지 않습니다. 참고용으로 활용해주세요.")
+        st.subheader("🔑 핵심 키워드")
+        st.write([f"{k[0]} ({k[1]}회)" for k in keywords])
 
 # 전체 데이터 테이블
 if st.session_state["news_data"]:
