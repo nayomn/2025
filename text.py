@@ -1,47 +1,36 @@
 import streamlit as st
-import pandas as pd
-from newspaper import Article   # pip install newspaper3k
 
-st.title("📰 언론사 비교 대시보드 (뉴스 링크 입력 버전)")
+st.title("🕵️ 가짜뉴스 판별 체험 앱")
 
-# 데이터 저장용
-if "news_data" not in st.session_state:
-    st.session_state["news_data"] = []
+# 사용자 입력
+text = st.text_area("기사 제목이나 내용을 입력하세요")
 
-# 입력 폼
-with st.form("link_form"):
-    url = st.text_input("뉴스 기사 링크 입력")
-    submitted = st.form_submit_button("추가하기")
+# 판별 버튼
+if st.button("분석하기"):
+    if text.strip() == "":
+        st.warning("분석할 기사를 입력하세요!")
+    else:
+        # 간단한 규칙 기반 분석 (예시)
+        fake_keywords = ["충격", "긴급", "단독", "파격", "제보", "소름"]
+        trust_keywords = ["정부", "통계청", "공식", "발표", "자료"]
 
-    if submitted and url:
-        try:
-            article = Article(url, language="ko")
-            article.download()
-            article.parse()
+        fake_count = sum(word in text for word in fake_keywords)
+        trust_count = sum(word in text for word in trust_keywords)
 
-            new_entry = {
-                "언론사": article.source_url,   # 신문사 주소 (출처)
-                "제목": article.title,
-                "본문": article.text[:200] + "..." if len(article.text) > 200 else article.text,
-                "링크": url
-            }
-            st.session_state["news_data"].append(new_entry)
-            st.success("✅ 뉴스가 추가되었습니다!")
-        except Exception as e:
-            st.error(f"뉴스를 불러오지 못했습니다: {e}")
+        score = 50 + fake_count*10 - trust_count*5
+        score = max(0, min(100, score))  # 0~100 사이 제한
 
-# 데이터 출력
-df = pd.DataFrame(st.session_state["news_data"])
+        st.subheader("🔎 분석 결과")
+        st.write(f"**가짜뉴스 가능성: {score}%**")
 
-if not df.empty:
-    st.subheader("📊 언론사별 기사 수")
-    count_data = df["언론사"].value_counts()
-    st.bar_chart(count_data)
+        st.markdown("**판별 근거:**")
+        if fake_count > 0:
+            st.write(f"⚠ 과장된 표현 발견: {fake_count}회")
+        if trust_count > 0:
+            st.write(f"✅ 신뢰 키워드 발견: {trust_count}회")
+        if fake_count == 0 and trust_count == 0:
+            st.write("중립적인 표현으로 판단됩니다.")
 
-    st.subheader("📰 기사 목록")
-    st.write(df)
-else:
-    st.info("아직 입력된 뉴스가 없습니다. 위에 뉴스 링크를 추가해주세요!")
 
 
 
